@@ -1,0 +1,34 @@
+{
+  "configList": [
+    {
+      "key": "patreonClientId",
+      "val": "KrVMFRPgg6J9bmjObvEOlvX2qQxaf_R99w-8cb3q1xvLOAA1p0qfO9wrwq5CPQ5N"
+    },
+    {
+      "key": "patreonListenerLocalhost",
+      "val": "http://localhost:12345/"
+    },
+    {
+      "key": "patreonRedirectUri",
+      "val": "https://yargachin-wye.github.io/Patreon-proxy-redirect/"
+    },
+    {
+      "key": "patreonScope",
+      "val": "identity"
+    }
+  ],
+  "textLinkList": [
+    {
+      "key": "Поддержка",
+      "val": "https://support.example.com"
+    },
+    {
+      "key": "Наш сайт",
+      "val": "https://example.com"
+    },
+    {
+      "key": "API входа",
+      "val": "https://api.example.com/auth"
+    }
+  ]
+}
