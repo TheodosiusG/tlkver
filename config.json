@@ -15,6 +15,10 @@
     {
       "key": "patreonScope",
       "val": "identity"
+    },
+    {
+      "key": "patreonForSub",
+      "val": "https://www.patreon.com/feodosiy"
     }
   ],
   "textLinkList": [
