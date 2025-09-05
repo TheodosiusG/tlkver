@@ -16,7 +16,7 @@
       const isAndroid = /Android/i.test(navigator.userAgent);
 
       if (isAndroid) {
-        window.location.href = `clickerapp://auth?code=${code}`;
+        window.location.href = `feodoiyapp://auth?code=${code}`;
       } else {
         window.location.href = `http://localhost:12345/?code=${code}`;
       }
