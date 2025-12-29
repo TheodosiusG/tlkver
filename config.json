@@ -23,16 +23,8 @@
   ],
   "textLinkList": [
     {
-      "key": "Поддержка",
-      "val": "https://support.example.com"
-    },
-    {
-      "key": "Наш сайт",
-      "val": "https://example.com"
-    },
-    {
-      "key": "API входа",
-      "val": "https://api.example.com/auth"
+      "key": "Steam",
+      "val": "https://store.steampowered.com/app/1129520/The_Lewd_Knight/"
     }
   ]
 }
