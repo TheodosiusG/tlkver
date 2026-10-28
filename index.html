@@ -2,28 +2,125 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Redirecting...</title>
+  <style>
+    body { font-family: sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; text-align: center; }
+    .btn { display: inline-block; margin: 8px 4px; padding: 12px 20px; border: 0; border-radius: 6px; background: #ff424d; color: #fff; font-size: 16px; text-decoration: none; cursor: pointer; }
+    .btn.secondary { background: #555; }
+    #codeBox { width: 100%; box-sizing: border-box; padding: 10px; font-family: monospace; font-size: 14px; text-align: center; }
+    .hidden { display: none; }
+    .muted { color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h2 id="title">Please wait...</h2>
+  <p id="message">Redirecting back to the app.</p>
+
+  <a id="returnBtn" class="btn hidden" href="#">Return to the game</a>
+
+  <div id="fallback" class="hidden">
+    <p>Did the game not receive the code? Make sure the game is running and press the button above, or copy this code and paste it in the game:</p>
+    <input id="codeBox" readonly>
+    <button id="copyBtn" class="btn secondary" type="button">Copy code</button>
+    <p class="muted">The code is valid for a short time and can be used only once.</p>
+  </div>
+
   <script>
     window.onload = () => {
+      const $ = (id) => document.getElementById(id);
+      const show = (id) => $(id).classList.remove("hidden");
+      const setText = (title, message) => {
+        $("title").innerText = title;
+        $("message").innerText = message;
+      };
+
       const query = new URLSearchParams(window.location.search);
       const code = query.get("code");
+      const error = query.get("error");
 
-      if (!code) {
-        document.body.innerText = "Error: parameter 'code' not found.";
+      const parseState = (raw) => {
+        try {
+          const s = JSON.parse(atob(raw.replace(/-/g, "+").replace(/_/g, "/")));
+          return s && s.v === 1 ? s : null;
+        } catch {
+          return null;
+        }
+      };
+
+      const rawState = query.get("state");
+      const state = rawState && parseState(rawState);
+      const stateParam = rawState ? `&state=${encodeURIComponent(rawState)}` : "";
+      const isValidPort = (port) => Number.isInteger(port) && port >= 1024 && port <= 65535;
+
+      let callback = null;
+      if (state && state.cb === "localhost" && isValidPort(state.port)) {
+        callback = `http://localhost:${state.port}/`;
+      } else if (state && state.cb === "app") {
+        callback = "feodoiyapp://auth";
+      }
+
+      if (error) {
+        if (error === "access_denied") {
+          setText("Login cancelled", "You declined access on Patreon. Return to the game and press the login button again if you want to verify your subscription.");
+        } else {
+          setText("Login failed", `Patreon returned an error: ${query.get("error_description") || error}. Return to the game and try again.`);
+        }
+        if (callback) window.location.href = `${callback}?error=${encodeURIComponent(error)}${stateParam}`;
         return;
       }
 
-      const isAndroid = /Android/i.test(navigator.userAgent);
-
-      if (isAndroid) {
-        window.location.href = `feodoiyapp://auth?code=${code}`;
-      } else {
-        window.location.href = `http://localhost:12345/?code=${code}`;
+      if (!code) {
+        setText("Invalid link", "Authorization code not found. Return to the game and press the login button again.");
+        return;
       }
+
+      if (!callback) {
+        // Legacy clients that do not send state.
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        callback = isAndroid ? "feodoiyapp://auth" : "http://localhost:12345/";
+      }
+      const target = `${callback}?code=${encodeURIComponent(code)}${stateParam}`;
+
+      $("returnBtn").href = target;
+      $("codeBox").value = code;
+      $("codeBox").onclick = () => $("codeBox").select();
+      $("copyBtn").onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(code);
+        } catch {
+          $("codeBox").select();
+          document.execCommand("copy");
+        }
+        $("copyBtn").innerText = "Copied!";
+      };
+
+      const showFallback = () => {
+        setText("Return to the game", "If the game did not open automatically, press the button below.");
+        show("returnBtn");
+        show("fallback");
+      };
+
+      const redirectedKey = `redirected:${code}`;
+      if (sessionStorage.getItem(redirectedKey)) {
+        showFallback();
+        return;
+      }
+      sessionStorage.setItem(redirectedKey, "1");
+
+      show("returnBtn");
+      setTimeout(() => {
+        if (document.visibilityState === "visible") showFallback();
+      }, 2500);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") showFallback();
+      });
+      window.addEventListener("pageshow", (e) => {
+        if (e.persisted) showFallback();
+      });
+
+      window.location.href = target;
     };
   </script>
-</head>
-<body>
-  Please wait... Redirecting back to the app.
 </body>
 </html>

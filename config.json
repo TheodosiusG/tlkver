@@ -28,7 +28,11 @@
     },
     {
       "key": "Patreon",
-      "val": "https://www.patreon.com/c/feodosiy/home?vanity=feodosiy"
+      "val": "https://www.patreon.com/feodosiy"
+    },
+    {
+      "key": "Discord",
+      "val": "https://discord.gg/KCPc4Ys"
     }
   ]
 }
