@@ -17,6 +17,10 @@
   <h2 id="title">Please wait...</h2>
   <p id="message">Redirecting back to the app.</p>
 
+  <p id="status" class="muted hidden"></p>
+  <button id="retryBtn" class="btn hidden" type="button"></button>
+  <a id="openPatreonBtn" class="btn secondary hidden" href="#"></a>
+
   <a id="returnBtn" class="btn hidden" href="#">Return to the game</a>
 
   <div id="fallback" class="hidden">
@@ -38,6 +42,128 @@
       const query = new URLSearchParams(window.location.search);
       const code = query.get("code");
       const error = query.get("error");
+
+      const vpnHint = {
+        ru: "Если у вас включён VPN — попробуйте его выключить. Если VPN выключен, а Patreon заблокирован в вашей стране — включите VPN. Затем нажмите «Проверить снова».",
+        en: "If you are using a VPN, try turning it off. If your VPN is off and Patreon is blocked in your region, turn the VPN on. Then press \"Check again\"."
+      };
+      const texts = {
+        ru: {
+          checkingTitle: "Подключаемся к Patreon...",
+          checkingMessage: "Проверяем, открывается ли Patreon в этом браузере.",
+          checking: "Проверяем доступ к Patreon...",
+          checkAgain: "Проверить снова",
+          openAnyway: "Всё равно открыть Patreon",
+          invalidTitle: "Неверная ссылка",
+          invalidMessage: "Вернитесь в игру и снова нажмите кнопку входа.",
+          browserOk: "Patreon открывается в этом браузере. Вернитесь в игру и снова нажмите кнопку входа.",
+          browserOkGameNot: "Patreon открывается в браузере, но не из игры. Если VPN работает только в браузере (расширение), включите его для всей системы или выключите совсем, затем снова нажмите кнопку входа в игре.",
+          browserFail: "Patreon не открывается в этом браузере. " + vpnHint.ru,
+          reasons: {
+            NoInternet: ["Нет подключения к интернету", "Игра не смогла выйти в интернет. Проверьте подключение. Если используете VPN, убедитесь, что он работает, или выключите его."],
+            PatreonUnreachable: ["Patreon недоступен", "Игра не смогла подключиться к Patreon. " + vpnHint.ru],
+            PatreonBlocked: ["Patreon отклонил подключение", "Patreon может блокировать подключения с адресов VPN. Выключите VPN или смените сервер, затем снова нажмите кнопку входа в игре."],
+            Timeout: ["Вход не завершён", "Игра не дождалась ответа от Patreon. Если страница Patreon не открылась или показала ошибку, попробуйте включить или выключить VPN и снова нажмите кнопку входа в игре."],
+            Unknown: ["Не удалось войти", "Что-то пошло не так. Проверьте подключение к интернету и VPN, затем снова нажмите кнопку входа в игре."]
+          }
+        },
+        en: {
+          checkingTitle: "Connecting to Patreon...",
+          checkingMessage: "Checking that Patreon opens in this browser.",
+          checking: "Checking access to Patreon...",
+          checkAgain: "Check again",
+          openAnyway: "Open Patreon anyway",
+          invalidTitle: "Invalid link",
+          invalidMessage: "Return to the game and press the login button again.",
+          browserOk: "Patreon opens in this browser. Return to the game and press the login button again.",
+          browserOkGameNot: "Patreon opens in the browser but not from the game. If your VPN works only in the browser (an extension), enable it system-wide or turn it off completely, then press the login button in the game again.",
+          browserFail: "Patreon does not open in this browser. " + vpnHint.en,
+          reasons: {
+            NoInternet: ["No internet connection", "The game could not connect to the internet. Check your connection. If you use a VPN, make sure it works or turn it off."],
+            PatreonUnreachable: ["Can't reach Patreon", "The game could not connect to Patreon. " + vpnHint.en],
+            PatreonBlocked: ["Patreon rejected the connection", "Patreon may block connections from VPN addresses. Turn off the VPN or switch servers, then press the login button in the game again."],
+            Timeout: ["Login not completed", "The game did not get a response from Patreon. If the Patreon page did not open or showed an error, try turning your VPN on or off and press the login button in the game again."],
+            Unknown: ["Login failed", "Something went wrong. Check your internet connection and VPN, then press the login button in the game again."]
+          }
+        }
+      };
+      const lang = (query.get("lang") || navigator.language || "en").toLowerCase().startsWith("ru") ? "ru" : "en";
+      const T = texts[lang];
+
+      const hide = (id) => $(id).classList.add("hidden");
+      const setStatus = (text) => {
+        $("status").innerText = text;
+        show("status");
+      };
+
+      const checkPatreon = async () => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        try {
+          await fetch(`https://www.patreon.com/favicon.ico?_=${Date.now()}`, { mode: "no-cors", cache: "no-store", signal: controller.signal });
+          return true;
+        } catch {
+          return false;
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+
+      const runCheck = async (onResult) => {
+        $("retryBtn").disabled = true;
+        setStatus(T.checking);
+        const ok = await checkPatreon();
+        $("retryBtn").disabled = false;
+        onResult(ok);
+      };
+
+      const parseLoginUrl = (raw) => {
+        try {
+          const u = new URL(raw);
+          return u.origin === "https://www.patreon.com" && u.pathname === "/oauth2/authorize" ? u.href : null;
+        } catch {
+          return null;
+        }
+      };
+
+      const login = query.get("login");
+      if (login !== null) {
+        const loginUrl = parseLoginUrl(login);
+        if (!loginUrl) {
+          setText(T.invalidTitle, T.invalidMessage);
+          return;
+        }
+        setText(T.checkingTitle, T.checkingMessage);
+        $("retryBtn").innerText = T.checkAgain;
+        $("openPatreonBtn").innerText = T.openAnyway;
+        $("openPatreonBtn").href = loginUrl;
+        const attempt = () => runCheck((ok) => {
+          if (ok) {
+            window.location.replace(loginUrl);
+            return;
+          }
+          setText(T.reasons.PatreonUnreachable[0], T.browserFail);
+          hide("status");
+          show("retryBtn");
+          show("openPatreonBtn");
+        });
+        $("retryBtn").onclick = attempt;
+        attempt();
+        return;
+      }
+
+      const help = query.get("help");
+      if (help !== null) {
+        const reason = T.reasons[help] ? help : "Unknown";
+        setText(...T.reasons[reason]);
+        $("retryBtn").innerText = T.checkAgain;
+        const gameSide = reason === "PatreonUnreachable" || reason === "PatreonBlocked";
+        const attempt = () => runCheck((ok) => setStatus(ok ? (gameSide ? T.browserOkGameNot : T.browserOk) : T.browserFail));
+        $("retryBtn").onclick = attempt;
+        show("retryBtn");
+        attempt();
+        return;
+      }
 
       const parseState = (raw) => {
         try {
